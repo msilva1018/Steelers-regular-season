@@ -36,8 +36,8 @@
   body.no-3d{background:radial-gradient(120% 80% at 50% 0%,#16242b 0%,#0a1216 70%)}
 
   /* ---------- gate ---------- */
-  #gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;
-    background:radial-gradient(80% 60% at 50% 55%,rgba(10,18,22,.55),rgba(10,18,22,.92));
+  #gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center start;padding:24px clamp(24px,7vw,110px);
+    background:linear-gradient(100deg,rgba(8,15,19,.92) 0%,rgba(8,15,19,.72) 34%,rgba(8,15,19,.16) 62%,rgba(8,15,19,0) 88%);
     transition:opacity .7s ease,visibility .7s}
   #gate.gone{opacity:0;visibility:hidden;pointer-events:none}
   #gate-form{width:min(430px,100%);background:rgba(17,29,35,.9);border:1px solid var(--line);

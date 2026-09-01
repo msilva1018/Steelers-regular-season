@@ -6,6 +6,7 @@ const PIT_ID = '23';
 const COL_W = 62;
 const CACHE_KEY = 'pit' + SEASON + ':results';
 const UNLOCK_KEY = 'pit' + SEASON + ':unlocked';
+const MANUAL_KEY = 'pit' + SEASON + ':manual';
 const SEEN_KEY = 'pit' + SEASON + ':seenIntro';
 
 const $ = sel => document.querySelector(sel);
@@ -120,8 +121,44 @@ function fallbackResults() {
 
 /* ---------- scoring ---------- */
 
+/* Precedence, lowest to highest:
+     schedule -> live feed -> MANUAL_RESULTS in data.js -> this browser's
+     overrides from the manual panel. Anything entered by hand is an
+     explicit instruction, so it beats the feed. */
+function loadOverrides() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MANUAL_KEY) || '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch (e) { return {}; }
+}
+
+function saveOverrides(ov) {
+  try { localStorage.setItem(MANUAL_KEY, JSON.stringify(ov)); } catch (e) { /* ignore */ }
+}
+
+function setOverride(week, value) {
+  const ov = loadOverrides();
+  if (value) ov[week] = value; else delete ov[week];
+  saveOverrides(ov);
+  paint();
+}
+
 function buildGames(live) {
-  return SCHEDULE.map(g => Object.assign({}, g, live[g.week] || {}));
+  const ov = loadOverrides();
+  return SCHEDULE.map(g => {
+    const out = Object.assign({}, g, live[g.week] || {});
+    const forced = ov[g.week] || MANUAL_RESULTS[g.week] || null;
+    if (forced) {
+      out.result = forced;
+      out.state = 'post';
+      out.detail = 'Entered by hand';
+      out.manual = true;
+      out.byBrowser = !!ov[g.week];
+      out.pitScore = null;
+      out.oppScore = null;
+    }
+    return out;
+  });
 }
 
 function scoreSeason(games) {
@@ -273,8 +310,11 @@ function renderBoard(games, season) {
     head += '<div class="cell hd' + (sp.split ? ' split' : '') + '">' +
       '<b>' + g.week + '</b><span>' + label(g) + '</span><i>' + shortDate(g.date) + '</i></div>';
     if (g.result) {
-      res += '<div class="cell rs ' + (g.result === 'W' ? 'win' : g.result === 'L' ? 'loss' : 'tie') + '">' +
-        '<b>' + g.result + '</b><span>' + (g.pitScore ? g.pitScore + '-' + g.oppScore : '') + '</span></div>';
+      res += '<div class="cell rs ' + (g.result === 'W' ? 'win' : g.result === 'L' ? 'loss' : 'tie') +
+        (g.manual ? ' man' : '') + '">' +
+        '<b>' + g.result + '</b><span>' +
+        (g.manual ? 'by hand' : (g.pitScore ? g.pitScore + '-' + g.oppScore : '')) +
+        '</span></div>';
     } else if (g.state === 'in') {
       res += '<div class="cell rs live"><b>LIVE</b><span>' + (g.pitScore ? g.pitScore + '-' + g.oppScore : '') + '</span></div>';
     } else {
@@ -333,7 +373,56 @@ function renderMeta(season, meta) {
   const src = meta.source === 'live' ? 'Live scores' :
     meta.source === 'cache' ? 'Cached scores, live feed unreachable' :
     'Manual results from data.js';
-  $('#status').innerHTML = src + (when ? ' &middot; updated ' + when : '');
+  const n = Object.keys(loadOverrides()).length;
+  $('#status').innerHTML = src + (when ? ' &middot; updated ' + when : '') +
+    (n ? ' &middot; <b class="ovr">' + n + ' entered by hand</b>' : '');
+}
+
+/* ---------- manual entry ---------- */
+
+function renderManual(games) {
+  const ov = loadOverrides();
+  const rows = games.map(g => {
+    const cur = ov[g.week] || null;
+    const fromFile = !cur && MANUAL_RESULTS[g.week] ? MANUAL_RESULTS[g.week] : null;
+    const feed = !cur && !fromFile && g.result ? g.result : null;
+    const btn = v => '<button type="button" data-week="' + g.week + '" data-set="' + v + '"' +
+      (cur === v ? ' class="on"' : '') + '>' + v + '</button>';
+    let note = '';
+    if (fromFile) note = 'data.js: ' + fromFile;
+    else if (feed) note = 'feed: ' + feed;
+    return '<li>' +
+      '<span class="wk">' + g.week + '</span>' +
+      '<span class="opp">' + label(g) + '</span>' +
+      '<span class="note">' + note + '</span>' +
+      '<span class="set">' + btn('W') + btn('L') + btn('T') +
+        '<button type="button" data-week="' + g.week + '" data-set="auto"' +
+        (cur ? '' : ' class="on"') + '>Auto</button></span>' +
+      '</li>';
+  }).join('');
+
+  const n = Object.keys(ov).length;
+  $('#manual').innerHTML =
+    '<h2>Enter results by hand</h2>' +
+    '<p class="lede">Use this if the live feed stalls. Anything you set here beats the feed ' +
+    'and is saved in <b>this browser only</b>, so the others will not see it. To publish a ' +
+    'result to everyone, hit Copy and paste the line into <code>data.js</code>, then commit.</p>' +
+    '<ul class="manual-list">' + rows + '</ul>' +
+    '<div class="manual-foot">' +
+      '<button type="button" id="manual-copy">Copy line for data.js</button>' +
+      '<button type="button" id="manual-clear"' + (n ? '' : ' disabled') + '>' +
+        'Clear ' + (n ? n + ' override' + (n === 1 ? '' : 's') : 'overrides') + '</button>' +
+      '<span id="manual-said"></span>' +
+    '</div>';
+}
+
+function manualLine() {
+  const ov = loadOverrides();
+  const merged = Object.assign({}, MANUAL_RESULTS, ov);
+  const weeks = Object.keys(merged).map(Number).sort((x, y) => x - y);
+  if (!weeks.length) return 'const MANUAL_RESULTS = {};';
+  return 'const MANUAL_RESULTS = { ' +
+    weeks.map(w => w + ": '" + merged[w] + "'").join(', ') + ' };';
 }
 
 /* ---------- the guy in the corner ----------
@@ -557,17 +646,24 @@ function renderGuy(season) {
 
 /* ---------- boot ---------- */
 
-async function refresh() {
-  let meta;
-  try { meta = await fetchResults(); }
-  catch (err) { meta = fallbackResults(); }
-  const games = buildGames(meta.live);
+let lastMeta = null;
+
+function paint() {
+  if (!lastMeta) return;
+  const games = buildGames(lastMeta.live);
   const season = scoreSeason(games);
-  renderMeta(season, meta);
+  renderMeta(season, lastMeta);
   renderStandings(season);
   renderBoard(games, season);
   renderSwing(games, season);
   renderGuy(season);
+  renderManual(games);
+}
+
+async function refresh() {
+  try { lastMeta = await fetchResults(); }
+  catch (err) { lastMeta = fallbackResults(); }
+  paint();
 }
 
 function boot() {
@@ -576,6 +672,38 @@ function boot() {
 
   setupGate();
   $('#skip').addEventListener('click', () => BridgeScene.skip());
+  $('#manual-toggle').addEventListener('click', () => {
+    const open = document.body.classList.toggle('manual-open');
+    $('#manual-toggle').textContent = open ? 'Hide manual entry' : 'Enter results';
+    if (open) $('#manual').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  $('#manual').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.id === 'manual-clear') {
+      saveOverrides({});
+      paint();
+      return;
+    }
+    if (b.id === 'manual-copy') {
+      const line = manualLine();
+      const say = msg => { const el = $('#manual-said'); if (el) el.textContent = msg; };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(line).then(
+          () => say('Copied. Paste over the MANUAL_RESULTS line in data.js.'),
+          () => say(line)
+        );
+      } else {
+        say(line);
+      }
+      return;
+    }
+    const wk = b.getAttribute('data-week');
+    const set = b.getAttribute('data-set');
+    if (wk && set) setOverride(wk, set === 'auto' ? null : set);
+  });
+
   $('#refresh').addEventListener('click', () => { $('#refresh').classList.add('spin'); refresh().finally(() => setTimeout(() => $('#refresh').classList.remove('spin'), 600)); });
   $('#replay').addEventListener('click', () => {
     if (!BridgeScene.isReady()) return;

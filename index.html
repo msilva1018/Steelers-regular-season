@@ -175,6 +175,32 @@
   .legend .k-miss{background:rgba(193,81,47,.3);border:1px solid var(--rust)}
   .legend .k-split{background:var(--gold-dim);height:3px;vertical-align:3px}
 
+  /* ---------- manual entry ---------- */
+  #manual{display:none;margin-bottom:48px}
+  body.manual-open #manual{display:block}
+  #manual code{font-family:var(--mono);color:var(--gold);font-size:12.5px}
+  #manual .lede b{color:var(--paper);font-weight:600}
+  ul.manual-list{list-style:none;margin:0 0 16px;padding:0;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:1px;background:var(--line)}
+  ul.manual-list li{background:var(--panel);display:flex;align-items:center;gap:10px;padding:8px 12px}
+  ul.manual-list .wk{font-family:var(--disp);font-size:21px;font-weight:800;
+    min-width:24px;text-align:right;color:var(--paper)}
+  ul.manual-list .opp{font-family:var(--mono);font-size:11px;letter-spacing:.06em;min-width:54px}
+  ul.manual-list .note{font-family:var(--mono);font-size:9.5px;color:var(--steel);flex:1;text-align:right}
+  ul.manual-list .set{display:flex;gap:3px}
+  ul.manual-list button{background:transparent;border:1px solid var(--line);color:var(--steel);
+    font-size:10px;padding:5px 6px;min-width:27px;letter-spacing:.06em}
+  ul.manual-list button:hover{border-color:var(--gold-dim);color:var(--gold)}
+  ul.manual-list button.on{background:var(--gold);border-color:var(--gold);color:#0a1216;font-weight:600}
+  .manual-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .manual-foot button{background:transparent;border:1px solid var(--line);color:var(--steel);
+    padding:9px 14px;font-size:10.5px}
+  .manual-foot button:hover:not(:disabled){border-color:var(--gold-dim);color:var(--gold)}
+  .manual-foot button:disabled{opacity:.35;cursor:default}
+  #manual-said{font-family:var(--mono);font-size:10.5px;color:var(--gold);word-break:break-all}
+  .rs.man{box-shadow:inset 0 -3px 0 var(--gold-dim)}
+  .ovr{color:var(--gold);font-weight:500}
+
   /* ---------- swing ---------- */
   #swing{margin-bottom:56px}
   ul.swings{list-style:none;margin:0;padding:0;display:grid;
@@ -257,6 +283,7 @@
         <span id="status">Loading scores</span>
         <span class="tools">
           <button id="refresh" type="button">Refresh</button>
+          <button id="manual-toggle" type="button">Enter results</button>
           <button id="replay" type="button">Replay flyover</button>
         </span>
       </div>
@@ -275,6 +302,7 @@
       <span><i class="k-miss"></i>Wrong</span>
       <span><i class="k-split"></i>Split pick</span>
     </div>
+    <section id="manual"></section>
     <section id="swing"></section>
     <footer>
       One point per correct pick, 17 games. Ties broken by whoever called the exact season record.<br>

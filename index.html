@@ -190,7 +190,24 @@
   ul.swings em.win{color:var(--gold)}
   ul.swings em.loss{color:var(--rust)}
 
-  footer{border-top:1px solid var(--line);padding:22px 0 60px;font-family:var(--mono);
+  /* ---------- the guy ---------- */
+  #guy{position:fixed;right:20px;bottom:20px;z-index:9;width:150px;
+    background:linear-gradient(180deg,#22303a,#182530);
+    border:1px solid var(--line);border-top:2px solid var(--gold-dim);
+    padding:10px 10px 8px;opacity:0;transform:translateY(10px);
+    transition:opacity .6s ease .5s,transform .6s ease .5s;pointer-events:none}
+  #app.in #guy{opacity:1;transform:none}
+  #guy-art{display:block}
+  #guy-art svg{display:block;width:100%;height:auto}
+  #guy-art .num{font-family:var(--disp);font-weight:800;fill:var(--gold)}
+  #guy-label{margin:6px 0 0;text-align:center;font-family:var(--mono);
+    font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);line-height:1.5}
+  #guy-label b{display:block;color:var(--gold);font-weight:500;letter-spacing:.09em}
+  @media(max-width:880px){
+    #guy{width:104px;right:12px;bottom:12px;padding:8px 8px 6px}
+    #guy-label{font-size:8.5px}
+  }
+  footer{border-top:1px solid var(--line);padding:22px 0 190px;font-family:var(--mono);
     font-size:11px;letter-spacing:.08em;color:var(--steel);line-height:1.9}
 
   @media(max-width:880px){
@@ -264,6 +281,10 @@
       Scores pulled from ESPN&rsquo;s public NFL feed every 90 seconds.
     </footer>
   </div>
+  <aside id="guy" aria-live="polite">
+    <div id="guy-art"></div>
+    <p id="guy-label"><b>Holding steady</b><span>0-0</span></p>
+  </aside>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

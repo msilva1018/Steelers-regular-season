@@ -336,6 +336,225 @@ function renderMeta(season, meta) {
   $('#status').innerHTML = src + (when ? ' &middot; updated ' + when : '');
 }
 
+/* ---------- the guy in the corner ----------
+   One parameter drives the whole figure: t from -1 (the season has
+   gone badly and he has stopped going to the gym) to +1 (the season
+   is going well and he has not stopped). The silhouette is built
+   from half-widths at fixed heights, so it morphs continuously
+   instead of snapping between poses. */
+
+const CX = 60;
+
+function physiqueT(season) {
+  const swing = season.actualW - season.actualL;
+  return Math.max(-1, Math.min(1, swing / 7));
+}
+
+function physiqueLabel(t) {
+  if (t <= -0.62) return 'Taking it hard';
+  if (t <= -0.22) return 'Letting himself go';
+  if (t <   0.22) return 'Holding steady';
+  if (t <   0.62) return 'Putting in work';
+  return 'Absolutely jacked';
+}
+
+/* smooth vertical spline through [x,y] stations, horizontal tangents */
+function spline(pts) {
+  let d = '';
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i - 1], c = pts[i], my = (p[1] + c[1]) / 2;
+    d += 'C' + p[0].toFixed(1) + ' ' + my.toFixed(1) +
+         ' ' + c[0].toFixed(1) + ' ' + my.toFixed(1) +
+         ' ' + c[0].toFixed(1) + ' ' + c[1].toFixed(1);
+  }
+  return d;
+}
+
+function guySvg(t) {
+  const j = Math.max(0, t);   /* jacked */
+  const f = Math.max(0, -t);  /* not jacked */
+
+  const shW    = 26 + 12.0 * j +  3.0 * f;
+  const trapW  = 8 + 7.5 * j + 2.5 * f;
+  const chestW = 25 + 14.5 * j +  9.0 * f;
+  const ribW   = 21 +  5.5 * j + 16.5 * f;
+  const waistW = 18 -  5.0 * j + 22.0 * f;
+  const bellyW = 17 -  5.5 * j + 26.0 * f;
+  const hipW   = 18 +  0.5 * j + 13.0 * f;
+
+  const neckW  = 11 + 5.0 * j + 6.0 * f;
+  const headRx = 13 + 2.6 * f;
+  const headRy = 14.5 + 0.8 * f;
+
+  const spread = 3 + 6.0 * j + 10.0 * f;
+  const upW    = 9 + 5.5 * j + 5.0 * f;
+  const bulge  = 2 + 5.5 * j + 1.5 * f;
+  const faW    = 7 + 5.5 * j + 3.0 * f;
+  const cuffY  = 89 - 9 * j;
+
+  const thighW = 11 + 4.0 * j + 7.0 * f;
+  const calfW  = 8 + 2.5 * j + 3.0 * f;
+
+  /* torso silhouette */
+  const st = [[trapW, 49], [shW, 59], [chestW, 71], [ribW, 85], [waistW, 100], [bellyW, 112], [hipW, 124]];
+  const right = st.map(function (s) { return [CX + s[0], s[1]]; });
+  const left = st.slice().reverse().map(function (s) { return [CX - s[0], s[1]]; });
+  const torso = 'M' + right[0][0].toFixed(1) + ' ' + right[0][1] + spline(right) +
+    'L' + left[0][0].toFixed(1) + ' ' + left[0][1] + spline(left) + 'Z';
+
+  /* arms, one per side */
+  function arm(sign) {
+    const sx = CX + sign * shW * 0.90;
+    const ex = sx + sign * spread;
+    const wx = ex + sign * 1.5;
+    const sleeve =
+      'M' + (sx - sign * upW / 2).toFixed(1) + ' 58' +
+      'L' + (sx + sign * upW / 2).toFixed(1) + ' 58' +
+      'Q' + (ex + sign * (upW / 2 + bulge)).toFixed(1) + ' ' + (cuffY - 16).toFixed(1) + ' ' +
+            (ex + sign * faW / 2).toFixed(1) + ' ' + cuffY.toFixed(1) +
+      'L' + (ex - sign * faW / 2).toFixed(1) + ' ' + cuffY.toFixed(1) +
+      'Q' + (sx - sign * (upW / 2 + 0.5)).toFixed(1) + ' ' + (cuffY - 15).toFixed(1) + ' ' +
+            (sx - sign * upW / 2).toFixed(1) + ' 58Z';
+    /* forearm bulges just below the cuff when there is something to bulge */
+    const fore =
+      'M' + (ex - sign * faW / 2).toFixed(1) + ' ' + (cuffY - 1).toFixed(1) +
+      'L' + (ex + sign * faW / 2).toFixed(1) + ' ' + (cuffY - 1).toFixed(1) +
+      'Q' + (ex + sign * (faW / 2 + 2.5 * j)).toFixed(1) + ' ' + (cuffY + 9).toFixed(1) + ' ' +
+            (wx + sign * faW * 0.36).toFixed(1) + ' 112' +
+      'L' + (wx - sign * faW * 0.36).toFixed(1) + ' 112' +
+      'Q' + (ex - sign * faW * 0.55).toFixed(1) + ' ' + (cuffY + 9).toFixed(1) + ' ' +
+            (ex - sign * faW / 2).toFixed(1) + ' ' + (cuffY - 1).toFixed(1) + 'Z';
+    return '<path d="' + fore + '" fill="#c39a76"/>' +
+           '<path d="' + sleeve + '" fill="#20272e" stroke="#586773" stroke-width="1.1"/>' +
+           '<rect x="' + (ex - sign * faW / 2 - (sign > 0 ? 0 : faW)).toFixed(1) +
+             '" y="' + (cuffY - 4).toFixed(1) + '" width="' + faW.toFixed(1) +
+             '" height="4.5" fill="#c9a12b"/>' +
+           '<circle cx="' + wx.toFixed(1) + '" cy="115" r="' + (4.2 + 1.2 * j).toFixed(1) +
+             '" fill="#c39a76"/>';
+  }
+
+  /* legs */
+  function leg(sign) {
+    const hx = CX + sign * hipW * 0.44;
+    const kx = CX + sign * (hipW * 0.44 + 1);
+    const pants =
+      'M' + (hx - thighW / 2).toFixed(1) + ' 122' +
+      'L' + (hx + thighW / 2).toFixed(1) + ' 122' +
+      'L' + (kx + calfW / 2).toFixed(1) + ' 152' +
+      'L' + (kx - calfW / 2).toFixed(1) + ' 152Z';
+    const sock =
+      'M' + (kx - calfW / 2).toFixed(1) + ' 151' +
+      'L' + (kx + calfW / 2).toFixed(1) + ' 151' +
+      'L' + (kx + calfW * 0.40).toFixed(1) + ' 176' +
+      'L' + (kx - calfW * 0.40).toFixed(1) + ' 176Z';
+    return '<path d="' + pants + '" fill="#c9a12b"/>' +
+           '<path d="' + sock + '" fill="#12161a"/>' +
+           '<rect x="' + (kx - calfW / 2).toFixed(1) + '" y="155" width="' +
+             calfW.toFixed(1) + '" height="3" fill="#c9a12b"/>' +
+           '<path d="M' + (kx - calfW * 0.40 - 1).toFixed(1) + ' 176 L' +
+             (kx + calfW * 0.40 + 3.5).toFixed(1) + ' 176 L' +
+             (kx + calfW * 0.40 + 4.5).toFixed(1) + ' 182 L' +
+             (kx - calfW * 0.40 - 2).toFixed(1) + ' 182Z" fill="#2b3238"/>';
+  }
+
+  /* head, with the face doing a little of the work */
+  const headCy = 32;
+  const mouthY = headCy + 7.5;
+  const mouthCurve = 3.0 * t;
+  const browTilt = 1.6 * f;
+  const chin = f > 0.42
+    ? '<path d="M' + (CX - headRx * 0.62).toFixed(1) + ' ' + (headCy + headRy * 0.80).toFixed(1) +
+      ' Q' + CX + ' ' + (headCy + headRy + 3.4 * f).toFixed(1) + ' ' +
+      (CX + headRx * 0.62).toFixed(1) + ' ' + (headCy + headRy * 0.80).toFixed(1) +
+      '" fill="#b98e6b"/>'
+    : '';
+
+  const numSize = 22 + 4 * j + 3 * f;
+
+  return '' +
+  '<svg viewBox="0 0 120 190" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+       'aria-label="Fan physique tracking the season record">' +
+    leg(-1) + leg(1) +
+    '<rect x="' + (CX - neckW / 2).toFixed(1) + '" y="42" width="' + neckW.toFixed(1) +
+      '" height="18" rx="' + (neckW / 3).toFixed(1) + '" fill="#b98e6b"/>' +
+    '<path d="' + torso + '" fill="#20272e" stroke="#5b6a76" stroke-width="1.2"/>' +
+    /* collar */
+    '<path d="M' + (CX - neckW / 2 - 5).toFixed(1) + ' 57 Q' + CX + ' 66 ' +
+      (CX + neckW / 2 + 5).toFixed(1) + ' 57" stroke="#c9a12b" stroke-width="3" fill="none"/>' +
+    '<text class="num" x="' + CX + '" y="' + (92 + 2 * f).toFixed(1) + '" font-size="' +
+      numSize.toFixed(1) + '" text-anchor="middle">26</text>' +
+    /* pec line when he is training, belly fold when he is not */
+    '<g stroke="#0f1418" stroke-width="1.3" fill="none" stroke-linecap="round">' +
+      '<path d="M' + (CX - chestW * 0.52).toFixed(1) + ' 74 Q' + CX + ' 80 ' +
+        (CX + chestW * 0.52).toFixed(1) + ' 74" opacity="' + (j * 0.85).toFixed(2) + '"/>' +
+      '<path d="M' + CX + ' 70 L' + CX + ' ' + (70 + 16 * j).toFixed(1) +
+        '" opacity="' + (j * 0.6).toFixed(2) + '"/>' +
+      '<path d="M' + (CX - bellyW * 0.55).toFixed(1) + ' 105 Q' + CX + ' 112 ' +
+        (CX + bellyW * 0.55).toFixed(1) + ' 105" opacity="' + (f * 0.8).toFixed(2) + '"/>' +
+    '</g>' +
+    arm(-1) + arm(1) +
+    chin +
+    '<ellipse cx="' + CX + '" cy="' + headCy + '" rx="' + headRx.toFixed(1) +
+      '" ry="' + headRy.toFixed(1) + '" fill="#c39a76"/>' +
+    '<ellipse cx="' + (CX - headRx - 0.6).toFixed(1) + '" cy="' + (headCy + 1) +
+      '" rx="2.2" ry="3.2" fill="#b98e6b"/>' +
+    '<ellipse cx="' + (CX + headRx + 0.6).toFixed(1) + '" cy="' + (headCy + 1) +
+      '" rx="2.2" ry="3.2" fill="#b98e6b"/>' +
+    /* hair */
+    '<path d="M' + (CX - headRx * 1.02).toFixed(1) + ' ' + (headCy - 2.5).toFixed(1) +
+      ' Q' + CX + ' ' + (headCy - headRy * 2.05).toFixed(1) + ' ' +
+      (CX + headRx * 1.02).toFixed(1) + ' ' + (headCy - 2.5).toFixed(1) +
+      ' Q' + CX + ' ' + (headCy - headRy * 0.72).toFixed(1) + ' ' +
+      (CX - headRx * 1.02).toFixed(1) + ' ' + (headCy - 2.5).toFixed(1) +
+      'Z" fill="#2b2320"/>' +
+    /* eyes and brows */
+    '<circle cx="' + (CX - 4.6).toFixed(1) + '" cy="' + (headCy + 1).toFixed(1) + '" r="1.5" fill="#20272c"/>' +
+    '<circle cx="' + (CX + 4.6).toFixed(1) + '" cy="' + (headCy + 1).toFixed(1) + '" r="1.5" fill="#20272c"/>' +
+    '<path d="M' + (CX - 7).toFixed(1) + ' ' + (headCy - 3.6 + browTilt).toFixed(1) +
+      ' L' + (CX - 2.2).toFixed(1) + ' ' + (headCy - 4.4).toFixed(1) +
+      '" stroke="#2b2320" stroke-width="1.3" stroke-linecap="round"/>' +
+    '<path d="M' + (CX + 7).toFixed(1) + ' ' + (headCy - 3.6 + browTilt).toFixed(1) +
+      ' L' + (CX + 2.2).toFixed(1) + ' ' + (headCy - 4.4).toFixed(1) +
+      '" stroke="#2b2320" stroke-width="1.3" stroke-linecap="round"/>' +
+    /* mouth */
+    '<path d="M' + (CX - 4.2).toFixed(1) + ' ' + mouthY.toFixed(1) +
+      ' Q' + CX + ' ' + (mouthY + mouthCurve).toFixed(1) + ' ' +
+      (CX + 4.2).toFixed(1) + ' ' + mouthY.toFixed(1) +
+      '" stroke="#8a6047" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+  '</svg>';
+}
+
+let guyShown = 0, guyTarget = 0, guyFrom = 0, guyStart = 0, guyRaf = null, guyRecord = '0-0';
+const GUY_MS = 900;
+
+function paintGuy() {
+  const art = $('#guy-art');
+  if (!art) return;
+  art.innerHTML = guySvg(guyShown);
+  $('#guy-label').innerHTML =
+    '<b>' + physiqueLabel(guyShown) + '</b><span>' + guyRecord + '</span>';
+}
+
+/* time based, so it lands on the target regardless of frame rate */
+function stepGuy(now) {
+  const p = Math.min((now - guyStart) / GUY_MS, 1);
+  const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  guyShown = guyFrom + (guyTarget - guyFrom) * e;
+  paintGuy();
+  guyRaf = p < 1 ? requestAnimationFrame(stepGuy) : null;
+}
+
+function renderGuy(season) {
+  guyRecord = season.actualW + '-' + season.actualL +
+    (season.actualT ? '-' + season.actualT : '');
+  const next = physiqueT(season);
+  if (Math.abs(next - guyTarget) < 0.0005 && guyRaf === null) { paintGuy(); return; }
+  guyFrom = guyShown;
+  guyTarget = next;
+  guyStart = performance.now();
+  if (guyRaf === null) guyRaf = requestAnimationFrame(stepGuy);
+}
+
 /* ---------- boot ---------- */
 
 async function refresh() {
@@ -348,6 +567,7 @@ async function refresh() {
   renderStandings(season);
   renderBoard(games, season);
   renderSwing(games, season);
+  renderGuy(season);
 }
 
 function boot() {

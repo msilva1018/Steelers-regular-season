@@ -61,4 +61,4 @@ const SCHEDULE = [
 /* Manual results, only used if the live feed cannot be reached.
    Format: { week: 'W' } or { week: 'L' } or { week: 'T' }
    Example: const MANUAL_RESULTS = { 1: 'W', 2: 'L' }; */
-const MANUAL_RESULTS = {1: 'L', 2: 'L'};*/
+const MANUAL_RESULTS = { };
